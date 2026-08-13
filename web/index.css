@@ -1,0 +1,58 @@
+:root {
+  --bg: #17140d;
+  --surface: #201c13;
+  --surface-2: #2a2418;
+  --border: #3c341f;
+  --border-strong: #544a2c;
+  --text-primary: #f3ede1;
+  --text-secondary: #bcb29a;
+  --text-muted: #8a8067;
+  --accent: #e8a33d;
+  --accent-bg: #3a2c14;
+  --loss: #e2685c;
+  --loss-bg: #3a201c;
+  --win: #6ec090;
+  --win-bg: #1c3324;
+  --font-body: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.num { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+
+button {
+  font-family: var(--font-body);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 1.5px solid var(--accent);
+  border-color: var(--accent);
+}
+
+a { color: var(--accent); }

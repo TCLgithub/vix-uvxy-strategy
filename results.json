@@ -1,0 +1,62 @@
+{
+  "config": {
+    "vix_threshold": 14.0,
+    "take_profit_pct": 3.0,
+    "stop_loss_pct": -15.0,
+    "max_hold_days": 15,
+    "cooldown_days": 1
+  },
+  "data_range": {
+    "start": "2011-10-04",
+    "end": "2026-08-12",
+    "n_days": 3735
+  },
+  "summary": {
+    "label": "VIX<14 signal",
+    "n_trades": 235,
+    "win_rate_pct": 79.57,
+    "avg_return_pct": -0.567,
+    "median_return_pct": 3.0,
+    "avg_win_pct": 3.0,
+    "avg_loss_pct": -14.462,
+    "best_trade_pct": 3.0,
+    "worst_trade_pct": -15.0,
+    "profit_factor": 0.808,
+    "total_compounded_return_pct": -86.25,
+    "cagr_pct": -13.74,
+    "max_drawdown_pct": -92.83,
+    "avg_hold_days": 2.48,
+    "sharpe_per_trade": -0.08,
+    "exit_reason_counts": {
+      "take_profit": 187,
+      "stop_loss": 45,
+      "max_hold": 3
+    },
+    "period_start": "2012-08-13",
+    "period_end": "2026-01-14"
+  },
+  "monte_carlo_bootstrap": {
+    "n_iter": 10000,
+    "final_return_pct_p5": -97.93,
+    "final_return_pct_p25": -93.53,
+    "final_return_pct_p50": -86.02,
+    "final_return_pct_p75": -68.17,
+    "final_return_pct_p95": -9.32,
+    "prob_net_loss_pct": 95.87,
+    "max_drawdown_p5_pct": -98.47,
+    "max_drawdown_p50_pct": -91.12,
+    "prob_drawdown_worse_than_30pct": 100.0
+  },
+  "monte_carlo_random_control": {
+    "n_iter": 5000,
+    "control_total_return_mean_pct": -92.17,
+    "control_total_return_median_pct": -95.22,
+    "control_win_rate_mean_pct": 77.54,
+    "real_total_return_pct": -86.25,
+    "real_win_rate_pct": 79.57,
+    "real_beats_random_pct_of_time_by_return": 85.5,
+    "real_beats_random_pct_of_time_by_winrate": 78.6
+  },
+  "current_vix": 14.55,
+  "current_uvxy": 20.33
+}
