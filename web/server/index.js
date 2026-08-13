@@ -11,6 +11,8 @@ const JOURNAL_PATH = path.join(__dirname, 'journal.json');
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
 
+const IS_PROD = process.env.NODE_ENV === 'production';
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -148,7 +150,20 @@ app.delete('/api/journal/:id', (req, res) => {
   res.status(204).end();
 });
 
-const PORT = process.env.SERVER_PORT || 3011;
+// In production (Render), this server also serves the built frontend —
+// no separate Vite process, so there's no dev-only PORT collision to avoid.
+if (IS_PROD) {
+  const distPath = path.join(__dirname, '..', 'dist');
+  app.use(express.static(distPath));
+  app.use((req, res) => {
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'not_found' });
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+// Render assigns PORT dynamically; local dev uses SERVER_PORT to avoid
+// colliding with the preview tool's own PORT env var (which targets Vite).
+const PORT = IS_PROD ? (process.env.PORT || 10000) : (process.env.SERVER_PORT || 3011);
 app.listen(PORT, () => {
   console.log(`VIX/UVXY server listening on http://localhost:${PORT}`);
 });

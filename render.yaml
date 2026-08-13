@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: vix-uvxy-strategy
+    runtime: node
+    plan: free
+    rootDir: web
+    buildCommand: npm install && npm run build
+    startCommand: npm run server
+    envVars:
+      - key: NODE_ENV
+        value: production
