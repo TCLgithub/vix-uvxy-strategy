@@ -17,7 +17,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const VIX_THRESHOLD = 14.0;
+const VIX_LOW_THRESHOLD = 14.0;
+const VIX_HIGH_THRESHOLD = 25.0;
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
@@ -46,25 +47,29 @@ async function getQuotes() {
     return quoteCache.data;
   }
   try {
-    const [vix, uvxy] = await withRetry(() => Promise.all([
+    const [vix, uvxy, svxy] = await withRetry(() => Promise.all([
       yf.quote('^VIX'),
       yf.quote('UVXY'),
+      yf.quote('SVXY'),
     ]));
+    // Yahoo's regularMarketChange/-Percent occasionally glitches (seen: equal to
+    // -previousClose, as if price were treated as 0) while price/previousClose stay
+    // correct. Recompute from those two directly instead of trusting the precomputed field.
+    function withChange(q) {
+      const price = q.regularMarketPrice;
+      const prevClose = q.regularMarketPreviousClose;
+      const change = prevClose ? price - prevClose : q.regularMarketChange;
+      const changePct = prevClose ? (change / prevClose) * 100 : q.regularMarketChangePercent;
+      return { price, change, changePct, time: q.regularMarketTime };
+    }
     const data = {
-      vix: {
-        price: vix.regularMarketPrice,
-        change: vix.regularMarketChange,
-        changePct: vix.regularMarketChangePercent,
-        time: vix.regularMarketTime,
-      },
-      uvxy: {
-        price: uvxy.regularMarketPrice,
-        change: uvxy.regularMarketChange,
-        changePct: uvxy.regularMarketChangePercent,
-        time: uvxy.regularMarketTime,
-      },
-      signalActive: vix.regularMarketPrice < VIX_THRESHOLD,
-      threshold: VIX_THRESHOLD,
+      vix: withChange(vix),
+      uvxy: withChange(uvxy),
+      svxy: withChange(svxy),
+      signalActive: vix.regularMarketPrice < VIX_LOW_THRESHOLD,
+      threshold: VIX_LOW_THRESHOLD,
+      signalHighActive: vix.regularMarketPrice > VIX_HIGH_THRESHOLD,
+      thresholdHigh: VIX_HIGH_THRESHOLD,
       fetchedAt: new Date().toISOString(),
       stale: false,
     };
@@ -134,11 +139,24 @@ app.get('/api/backtest/sweep', (req, res) => {
   res.json(readJson('sweep_results.json', []));
 });
 
-app.get('/report', (req, res) => {
-  const reportPath = path.join(PROJECT_ROOT, 'report.html');
-  if (!fs.existsSync(reportPath)) return res.status(404).send('Report not found');
-  res.sendFile(reportPath);
+app.get('/api/backtest/report-data-svxy', (req, res) => {
+  res.json(readJson('report_data_svxy.json', null));
 });
+
+app.get('/api/backtest/results-svxy', (req, res) => {
+  res.json(readJson('results_svxy.json', null));
+});
+
+function serveStaticReport(filename) {
+  return (req, res) => {
+    const reportPath = path.join(PROJECT_ROOT, filename);
+    if (!fs.existsSync(reportPath)) return res.status(404).send('Report not found');
+    res.sendFile(reportPath);
+  };
+}
+
+app.get('/report', serveStaticReport('report.html'));
+app.get('/report-svxy', serveStaticReport('report_svxy.html'));
 
 // --- trade journal (manual entries; no broker connection) ---
 function readJournal() {
@@ -154,17 +172,19 @@ app.get('/api/journal', (req, res) => {
 });
 
 app.post('/api/journal', (req, res) => {
-  const { entryPrice, entryDate, targetPct, stopPct, notes } = req.body;
+  const { entryPrice, entryDate, targetPct, stopPct, notes, instrument } = req.body;
   if (!entryPrice || !entryDate) {
     return res.status(400).json({ error: 'entryPrice and entryDate are required' });
   }
+  const inst = instrument === 'SVXY' ? 'SVXY' : 'UVXY';
   const entries = readJournal();
   const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    instrument: inst,
     entryPrice: Number(entryPrice),
     entryDate,
-    targetPct: targetPct != null ? Number(targetPct) : 3,
-    stopPct: stopPct != null ? Number(stopPct) : -15,
+    targetPct: targetPct != null ? Number(targetPct) : (inst === 'SVXY' ? 10 : 3),
+    stopPct: stopPct != null ? Number(stopPct) : (inst === 'SVXY' ? -20 : -15),
     notes: notes || '',
     status: 'open',
     exitPrice: null,
