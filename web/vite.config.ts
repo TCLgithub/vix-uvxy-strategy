@@ -7,6 +7,7 @@ export default defineConfig({
     host: '0.0.0.0',
     proxy: {
       '/api': 'http://localhost:3011',
+      '/report': 'http://localhost:3011',
     },
   },
   plugins: [react()],

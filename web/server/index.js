@@ -134,6 +134,12 @@ app.get('/api/backtest/sweep', (req, res) => {
   res.json(readJson('sweep_results.json', []));
 });
 
+app.get('/report', (req, res) => {
+  const reportPath = path.join(PROJECT_ROOT, 'report.html');
+  if (!fs.existsSync(reportPath)) return res.status(404).send('Report not found');
+  res.sendFile(reportPath);
+});
+
 // --- trade journal (manual entries; no broker connection) ---
 function readJournal() {
   if (!fs.existsSync(JOURNAL_PATH)) return [];

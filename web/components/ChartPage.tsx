@@ -101,7 +101,11 @@ export default function ChartPage() {
             </AreaChart>
           </ResponsiveContainer>
           <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: '0.75rem', marginBottom: 0 }}>
-            Original 3%-take-profit rule loses money historically (see README.md / the full verification report for methodology, Monte Carlo results, and a better-performing parameter set found in the sweep).
+            Original 3%-take-profit rule loses money historically.{' '}
+            <a href="/report" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              Read the full verification report &rarr;
+            </a>{' '}
+            (methodology, Monte Carlo results, and the better-performing parameter set found in the sweep).
           </p>
         </section>
       )}
