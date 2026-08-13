@@ -1,0 +1,7 @@
+Hey — built a little tool to backtest a couple of VIX-based trade ideas, thought you'd find it interesting. Link: https://vix-uvxy-strategy.onrender.com
+
+**Idea 1: VIX dip → buy UVXY.** VIX normally sits 15-18. The idea was: when it drops below 14, that's "coiled" for an upward spike, so go long UVXY (a VIX-tracking ETF) and take a quick 3% profit. Backtested it over 2011-2026: **it loses money badly** — the 3% wins happen often, but the losses when it goes wrong are much bigger (avg -14.5% vs avg +3%), so it's a net loser despite a 80% win rate. Classic "picking up pennies in front of a steamroller."
+
+**Idea 2: VIX spike → bet on it coming back down.** The mirror image — when VIX spikes elevated (used >25 as the cutoff), fear tends to fade and vol reverts, so buy SVXY (an inverse-VIX ETF) instead. This one tested much better: +889% compounded over 54 trades, balanced win/loss sizing, and it structurally avoids being in the trade during the worst single-day crashes (it only buys after VIX has already spiked, not before). Real caveats though — the stop-loss has barely been tested (hit only 4 times ever), and some of the gain is just "shorting vol was a good trade in this era generally," not pure signal skill.
+
+Both writeups (charts, methodology, Monte Carlo stats) are linked from the app itself. Take the second one's numbers with real skepticism — good backtest, thin real-world track record.

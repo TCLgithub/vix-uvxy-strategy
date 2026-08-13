@@ -4,6 +4,7 @@ import YahooFinance from 'yahoo-finance2';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { loadHistory, runBacktest, summarize } from './backtestEngine.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..'); // VIX - UVXY/
@@ -146,6 +147,51 @@ app.get('/api/backtest/report-data-svxy', (req, res) => {
 app.get('/api/backtest/results-svxy', (req, res) => {
   res.json(readJson('results_svxy.json', null));
 });
+
+// Interactive parameter runs from the Chart page's left panel. No Monte Carlo
+// (too slow for live UI) -- just the backtest + equity curve, computed on
+// demand against cached full-history VIX/UVXY/SVXY daily bars.
+app.post('/api/backtest/run', async (req, res) => {
+  try {
+    const instrument = req.body.instrument === 'SVXY' ? 'SVXY' : 'UVXY';
+    const vixMode = req.body.vixMode === 'above' ? 'above' : 'below';
+    const threshold = clampNum(req.body.threshold, 5, 60, instrument === 'SVXY' ? 25 : 14);
+    const tp = clampNum(req.body.tp, 0.5, 50, instrument === 'SVXY' ? 10 : 3);
+    const sl = -Math.abs(clampNum(req.body.sl, 0.5, 50, instrument === 'SVXY' ? 20 : 15));
+    const maxHold = Math.round(clampNum(req.body.maxHold, 1, 60, instrument === 'SVXY' ? 20 : 15));
+
+    const rows = await withRetry(() => loadHistory(yf));
+    const trades = runBacktest(rows, { instrument, vixMode, threshold, tp, sl, maxHold, cooldown: 1 });
+    if (trades.length < 5) {
+      return res.status(200).json({
+        config: { instrument, vixMode, threshold, tp, sl, maxHold },
+        summary: { n_trades: trades.length },
+        equity_points: [],
+        warning: 'Too few trades at these settings to be meaningful (need at least 5).',
+      });
+    }
+    const summary = summarize(trades);
+    const equityPoints = [];
+    let equity = 1;
+    trades.forEach((t, idx) => {
+      equity *= 1 + t.returnPct / 100;
+      equityPoints.push([idx + 1, equity]);
+    });
+    res.json({
+      config: { instrument, vixMode, threshold, tp, sl, maxHold },
+      summary,
+      equity_points: equityPoints,
+    });
+  } catch (err) {
+    res.status(502).json({ error: 'backtest_run_failed', message: err.message });
+  }
+});
+
+function clampNum(v, lo, hi, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(hi, Math.max(lo, n));
+}
 
 function serveStaticReport(filename) {
   return (req, res) => {

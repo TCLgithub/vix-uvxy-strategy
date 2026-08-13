@@ -56,3 +56,19 @@ input:focus, select:focus, textarea:focus {
 }
 
 a { color: var(--accent); }
+
+input[type="range"] {
+  padding: 0;
+  background: transparent;
+  accent-color: var(--accent);
+}
+
+.app-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+.app-sidebar { width: 260px; flex-shrink: 0; }
+.app-sidebar.collapsed { width: auto; }
+.app-main { flex: 1; min-width: 0; }
+
+@media (max-width: 760px) {
+  .app-layout { flex-direction: column; }
+  .app-sidebar, .app-sidebar.collapsed { width: 100%; }
+}
