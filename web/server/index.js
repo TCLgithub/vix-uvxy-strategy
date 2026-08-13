@@ -19,36 +19,64 @@ app.use(express.json());
 
 const VIX_THRESHOLD = 14.0;
 
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+async function withRetry(fn, attempts = 3, delayMs = 800) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await sleep(delayMs * (i + 1)); // backoff: 800ms, 1600ms
+    }
+  }
+  throw lastErr;
+}
+
+// Yahoo's shared/datacenter-IP rate limiting (esp. on free hosting tiers) means
+// live fetches occasionally 429. We retry with backoff, and if that still fails,
+// fall back to the last successfully fetched data rather than erroring the UI.
 let quoteCache = { data: null, fetchedAt: 0 };
+let lastGoodQuotes = null;
 const QUOTE_TTL_MS = 30 * 1000;
 
 async function getQuotes() {
   if (quoteCache.data && Date.now() - quoteCache.fetchedAt < QUOTE_TTL_MS) {
     return quoteCache.data;
   }
-  const [vix, uvxy] = await Promise.all([
-    yf.quote('^VIX'),
-    yf.quote('UVXY'),
-  ]);
-  const data = {
-    vix: {
-      price: vix.regularMarketPrice,
-      change: vix.regularMarketChange,
-      changePct: vix.regularMarketChangePercent,
-      time: vix.regularMarketTime,
-    },
-    uvxy: {
-      price: uvxy.regularMarketPrice,
-      change: uvxy.regularMarketChange,
-      changePct: uvxy.regularMarketChangePercent,
-      time: uvxy.regularMarketTime,
-    },
-    signalActive: vix.regularMarketPrice < VIX_THRESHOLD,
-    threshold: VIX_THRESHOLD,
-    fetchedAt: new Date().toISOString(),
-  };
-  quoteCache = { data, fetchedAt: Date.now() };
-  return data;
+  try {
+    const [vix, uvxy] = await withRetry(() => Promise.all([
+      yf.quote('^VIX'),
+      yf.quote('UVXY'),
+    ]));
+    const data = {
+      vix: {
+        price: vix.regularMarketPrice,
+        change: vix.regularMarketChange,
+        changePct: vix.regularMarketChangePercent,
+        time: vix.regularMarketTime,
+      },
+      uvxy: {
+        price: uvxy.regularMarketPrice,
+        change: uvxy.regularMarketChange,
+        changePct: uvxy.regularMarketChangePercent,
+        time: uvxy.regularMarketTime,
+      },
+      signalActive: vix.regularMarketPrice < VIX_THRESHOLD,
+      threshold: VIX_THRESHOLD,
+      fetchedAt: new Date().toISOString(),
+      stale: false,
+    };
+    quoteCache = { data, fetchedAt: Date.now() };
+    lastGoodQuotes = data;
+    return data;
+  } catch (err) {
+    if (lastGoodQuotes) {
+      return { ...lastGoodQuotes, stale: true };
+    }
+    throw err;
+  }
 }
 
 app.get('/api/quotes', async (req, res) => {
@@ -59,20 +87,31 @@ app.get('/api/quotes', async (req, res) => {
   }
 });
 
+const intradayCache = new Map(); // symbol -> { points, fetchedAt }
+const INTRADAY_TTL_MS = 5 * 60 * 1000;
+
 app.get('/api/intraday/:symbol', async (req, res) => {
   const symbol = req.params.symbol === 'VIX' ? '^VIX' : req.params.symbol;
+  const cached = intradayCache.get(symbol);
+  if (cached && Date.now() - cached.fetchedAt < INTRADAY_TTL_MS) {
+    return res.json({ symbol, points: cached.points, stale: false });
+  }
   try {
     const now = Math.floor(Date.now() / 1000);
-    const chart = await yf.chart(symbol, {
+    const chart = await withRetry(() => yf.chart(symbol, {
       period1: now - 6 * 86400,
       period2: now,
       interval: '1d',
-    });
+    }));
     const points = (chart.quotes || [])
       .filter((q) => q.close != null)
       .map((q) => ({ date: q.date, close: q.close, high: q.high, low: q.low, open: q.open }));
-    res.json({ symbol, points });
+    intradayCache.set(symbol, { points, fetchedAt: Date.now() });
+    res.json({ symbol, points, stale: false });
   } catch (err) {
+    if (cached) {
+      return res.json({ symbol, points: cached.points, stale: true });
+    }
     res.status(502).json({ error: 'chart_fetch_failed', message: err.message });
   }
 });

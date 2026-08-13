@@ -7,6 +7,7 @@ interface Quotes {
   signalActive: boolean;
   threshold: number;
   fetchedAt: string;
+  stale?: boolean;
 }
 
 interface IntradayPoint { date: string; close: number; high: number; low: number; open: number }
@@ -66,7 +67,7 @@ export default function ChartPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <SignalBanner active={signalActive} vix={quotes?.vix.price} distance={distance} err={quoteErr} />
+      <SignalBanner active={signalActive} vix={quotes?.vix.price} distance={distance} err={quoteErr} stale={quotes?.stale} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
         <QuoteCard label="VIX" price={quotes?.vix.price} change={quotes?.vix.change} changePct={quotes?.vix.changePct} points={vixHist} threshold={14} />
@@ -108,7 +109,7 @@ export default function ChartPage() {
   );
 }
 
-function SignalBanner({ active, vix, distance, err }: { active: boolean; vix?: number; distance: number | null; err: string | null }) {
+function SignalBanner({ active, vix, distance, err, stale }: { active: boolean; vix?: number; distance: number | null; err: string | null; stale?: boolean }) {
   if (err) {
     return (
       <div style={{ background: 'var(--loss-bg)', border: '0.5px solid var(--border)', borderRadius: 10, padding: '0.9rem 1.1rem', color: 'var(--loss)', fontSize: 13.5 }}>
@@ -137,6 +138,7 @@ function SignalBanner({ active, vix, distance, err }: { active: boolean; vix?: n
           {distance != null && (
             <span> &middot; {distance <= 0 ? `${fmt(Math.abs(distance))} below trigger` : `${fmt(distance)} above trigger`}</span>
           )}
+          {stale && <span style={{ color: 'var(--text-muted)' }}> &middot; feed briefly rate-limited, showing last good price</span>}
         </div>
       </div>
     </div>
