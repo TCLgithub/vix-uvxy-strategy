@@ -1,5 +1,6 @@
 node_modules/
 dist/
 server/journal.json
+server/last_quotes.json
 .env
 .env.local

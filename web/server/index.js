@@ -39,8 +39,16 @@ async function withRetry(fn, attempts = 3, delayMs = 800) {
 // Yahoo's shared/datacenter-IP rate limiting (esp. on free hosting tiers) means
 // live fetches occasionally 429. We retry with backoff, and if that still fails,
 // fall back to the last successfully fetched data rather than erroring the UI.
+// Persisted to disk too, so a fresh deploy that immediately hits a rate limit
+// (no in-memory history yet) still has *something* to fall back to.
+const LAST_QUOTES_PATH = path.join(__dirname, 'last_quotes.json');
 let quoteCache = { data: null, fetchedAt: 0 };
-let lastGoodQuotes = null;
+let lastGoodQuotes = (() => {
+  try {
+    if (fs.existsSync(LAST_QUOTES_PATH)) return JSON.parse(fs.readFileSync(LAST_QUOTES_PATH, 'utf-8'));
+  } catch { /* ignore -- fall through to null */ }
+  return null;
+})();
 const QUOTE_TTL_MS = 30 * 1000;
 
 async function getQuotes() {
@@ -76,6 +84,7 @@ async function getQuotes() {
     };
     quoteCache = { data, fetchedAt: Date.now() };
     lastGoodQuotes = data;
+    fs.writeFile(LAST_QUOTES_PATH, JSON.stringify(data), () => {}); // best-effort, don't block the response
     return data;
   } catch (err) {
     if (lastGoodQuotes) {

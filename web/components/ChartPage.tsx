@@ -60,6 +60,11 @@ function fmt(n: number | undefined, digits = 2) {
   return n.toFixed(digits);
 }
 
+function scrollToReport(e: React.MouseEvent) {
+  e.preventDefault();
+  document.getElementById('full-report')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 export default function ChartPage() {
   const [quotes, setQuotes] = useState<Quotes | null>(null);
   const [quoteErr, setQuoteErr] = useState<string | null>(null);
@@ -208,14 +213,14 @@ export default function ChartPage() {
                 {isPublishedDefault ? (
                   <>
                     Published default, verified with Monte Carlo.{' '}
-                    <a href={REPORT_URL[params.instrument]} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                      Read the full verification report &rarr;
+                    <a href="#full-report" onClick={(e) => scrollToReport(e)} style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                      Jump to the full verification report &darr;
                     </a>
                   </>
                 ) : (
                   <>Custom parameters — backtest only, no Monte Carlo run for this combination. Compare against the {' '}
-                    <a href={REPORT_URL[params.instrument]} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                      published {params.instrument} report
+                    <a href="#full-report" onClick={(e) => scrollToReport(e)} style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                      published {params.instrument} report below
                     </a>{' '}(reset the panel to match its settings exactly).
                   </>
                 )}
@@ -227,6 +232,8 @@ export default function ChartPage() {
             </p>
           )}
         </section>
+
+        <FullReport instrument={params.instrument} />
       </div>
     </div>
   );
@@ -381,6 +388,38 @@ function QuoteCard({ label, price, change, changePct, points, prefix = '', thres
         </LineChart>
       </ResponsiveContainer>
     </div>
+  );
+}
+
+function FullReport({ instrument }: { instrument: Instrument }) {
+  const [height, setHeight] = useState(1200);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === 'report-height' && typeof e.data.height === 'number') {
+        const next = Math.max(600, Math.min(20000, e.data.height + 20));
+        setHeight((prev) => (Math.abs(next - prev) > 5 ? next : prev));
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  return (
+    <section id="full-report" style={{ scrollMarginTop: '1rem' }}>
+      <h2 style={{ fontSize: 16, margin: '0 0 0.9rem', fontWeight: 600 }}>
+        Full verification report — {instrument}
+      </h2>
+      <iframe
+        ref={iframeRef}
+        key={instrument}
+        src={REPORT_URL[instrument]}
+        title={`${instrument} verification report`}
+        style={{ width: '100%', height, border: 'none', borderRadius: 12, background: 'var(--surface)' }}
+      />
+    </section>
   );
 }
 

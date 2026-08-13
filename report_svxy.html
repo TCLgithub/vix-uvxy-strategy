@@ -273,3 +273,22 @@
     Data: Yahoo Finance (^VIX, SVXY), 2011-10-04 through 2026-08-12 &middot; 54 non-overlapping trades generated under the one-position-at-a-time rule &middot; Full trade log and code in this project folder (<code>backtest_svxy.py</code>, <code>trades_svxy.csv</code>). Research tool, not investment advice.
   </footer>
 </div>
+<script>
+  // Lets a parent page embed this report in an iframe without a double
+  // scrollbar -- posts our real content height so the parent can size the
+  // iframe to match instead of giving it a fixed height. Deliberately a
+  // ONE-TIME measurement (load + a short settle timeout), not a live
+  // observer: the parent resizing the iframe changes our own layout box
+  // (width via scrollbar changes, wrapped text, etc.), which a ResizeObserver
+  // or 'resize' listener would treat as new content and re-report, forming
+  // a parent<->child feedback loop that spirals the height upward forever.
+  if (window.parent !== window) {
+    function postHeight() {
+      window.parent.postMessage({ type: 'report-height', height: document.documentElement.scrollHeight }, '*');
+    }
+    window.addEventListener('load', () => {
+      postHeight();
+      setTimeout(postHeight, 300); // catch late web-font reflow, then stop
+    });
+  }
+</script>
