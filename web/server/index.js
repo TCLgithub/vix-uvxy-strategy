@@ -157,7 +157,7 @@ app.post('/api/backtest/run', async (req, res) => {
     const vixMode = req.body.vixMode === 'above' ? 'above' : 'below';
     const threshold = clampNum(req.body.threshold, 5, 60, instrument === 'SVXY' ? 25 : 14);
     const tp = clampNum(req.body.tp, 0.5, 50, instrument === 'SVXY' ? 10 : 3);
-    const sl = -Math.abs(clampNum(req.body.sl, 0.5, 50, instrument === 'SVXY' ? 20 : 15));
+    const sl = -clampNum(Math.abs(req.body.sl), 0.5, 50, instrument === 'SVXY' ? 20 : 15);
     const maxHold = Math.round(clampNum(req.body.maxHold, 1, 60, instrument === 'SVXY' ? 20 : 15));
 
     const rows = await withRetry(() => loadHistory(yf));
