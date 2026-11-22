@@ -51,16 +51,52 @@ let lastGoodQuotes = (() => {
 })();
 const QUOTE_TTL_MS = 30 * 1000;
 
+// Build a quote-shaped object from daily chart bars (no crumb required).
+// Price = latest market price; previous close = the close of the bar before the
+// latest session, so change/% match what yf.quote() reports (on weekends: Friday vs Thursday).
+async function quoteViaChart(symbol) {
+  const now = Math.floor(Date.now() / 1000);
+  const chart = await yf.chart(symbol, { period1: now - 10 * 86400, period2: now, interval: '1d' });
+  const bars = (chart.quotes || []).filter((b) => b.close != null);
+  if (!bars.length) throw new Error(`no chart data for ${symbol}`);
+  const meta = chart.meta || {};
+  const last = bars[bars.length - 1];
+  const prev = bars.length > 1 ? bars[bars.length - 2] : null;
+  const price = meta.regularMarketPrice ?? last.close;
+  if (price == null) throw new Error(`no price for ${symbol}`);
+  return {
+    regularMarketPrice: price,
+    regularMarketPreviousClose: prev ? prev.close : meta.chartPreviousClose,
+    regularMarketChange: null,
+    regularMarketChangePercent: null,
+    regularMarketTime: meta.regularMarketTime ?? last.date,
+  };
+}
+
 async function getQuotes() {
   if (quoteCache.data && Date.now() - quoteCache.fetchedAt < QUOTE_TTL_MS) {
     return quoteCache.data;
   }
   try {
-    const [vix, uvxy, svxy] = await withRetry(() => Promise.all([
-      yf.quote('^VIX'),
-      yf.quote('UVXY'),
-      yf.quote('SVXY'),
-    ]));
+    // Primary source: yf.chart(). Unlike yf.quote() it doesn't need Yahoo's
+    // cookie/crumb handshake, which Yahoo frequently 429s from shared cloud IPs
+    // (Render free tier) -- that was the cause of the "status 502" banner.
+    // yf.quote() is kept only as a fallback.
+    let vix, uvxy, svxy;
+    try {
+      [vix, uvxy, svxy] = await withRetry(() => Promise.all([
+        quoteViaChart('^VIX'),
+        quoteViaChart('UVXY'),
+        quoteViaChart('SVXY'),
+      ]));
+    } catch (chartErr) {
+      console.warn('chart-based quotes failed, trying yf.quote():', chartErr.message);
+      [vix, uvxy, svxy] = await withRetry(() => Promise.all([
+        yf.quote('^VIX'),
+        yf.quote('UVXY'),
+        yf.quote('SVXY'),
+      ]), 2);
+    }
     // Yahoo's regularMarketChange/-Percent occasionally glitches (seen: equal to
     // -previousClose, as if price were treated as 0) while price/previousClose stay
     // correct. Recompute from those two directly instead of trusting the precomputed field.
